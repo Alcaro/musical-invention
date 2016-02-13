@@ -7,13 +7,11 @@ Programs generally don't need to be modified to run under Musical Invention.
 
 ## TODO list (do not use until all are ticked)
 
-[ ] Find needed technologies
- [X] Send packets to userspace (iptables -j QUEUE)
- [ ] Change iptables rules from C
-[ ] Parse DNS query
-[ ] Parse DNS reply
-[ ] Remove stale iptables rules after a while
-[ ] Make it configurable
+- [ ] Find needed technologies: Send packets to userspace (iptables -j QUEUE), change iptables rules from C (unknown)
+- [ ] Parse DNS query
+- [ ] Parse DNS reply
+- [ ] Remove stale iptables rules after a while
+- [ ] Make it configurable
 
 ## Setup
 
