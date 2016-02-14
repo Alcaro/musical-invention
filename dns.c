@@ -6,10 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct musical_dns * musical_dns_parse(const void * packet_, size_t len)
+struct dns * dns_parse(const void * packet_, size_t len)
 {
 	const uint8_t * packet=packet_;
-	struct musical_dns * ret = malloc(sizeof(*ret));
+	struct dns * ret = malloc(sizeof(*ret));
 	memset(ret, 0, sizeof(*ret));
 	
 	//ret->
@@ -20,7 +20,7 @@ struct musical_dns * musical_dns_parse(const void * packet_, size_t len)
 	return ret;
 }
 
-void musical_dns_free(struct musical_dns * query)
+void dns_free(struct dns * query)
 {
 	free(query);
 }

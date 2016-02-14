@@ -4,7 +4,7 @@
 
 #include "musical-invention.h"
 
-struct musical_config * musical_config_parse(FILE* input, FILE* errors)
+struct config * config_parse(FILE* input, FILE* errors)
 {
 	return NULL;
 }

@@ -31,7 +31,7 @@ static unsigned int get_lo()
 	return lo;
 }
 
-static bool unpack_ipv4(struct musical_trace_packet * pack)
+static bool unpack_ipv4(struct trace_packet * pack)
 {
 	if (pack->datalen < 20) return false; // IPv4 packets are 20 bytes plus data
 	if ((pack->data[0]>>4) != 4) return false;
@@ -55,7 +55,7 @@ static bool unpack_ipv4(struct musical_trace_packet * pack)
 	return true;
 }
 
-static bool unpack_udp(struct musical_trace_packet * pack)
+static bool unpack_udp(struct trace_packet * pack)
 {
 	if (pack->proto != udp) return false;
 	if (pack->datalen < 8) return false; // UDP packets are 8 bytes plus data
@@ -69,12 +69,12 @@ static bool unpack_udp(struct musical_trace_packet * pack)
 	return true;
 }
 
-static bool process(struct nfq_data * nfa, struct musical_trace * trace)
+static bool process(struct nfq_data * nfa, struct trace * trace)
 {
 	uint8_t * data;
 	int len = nfq_get_payload(nfa, &data);
 	
-	struct musical_trace_packet pack;
+	struct trace_packet pack;
 	memset(&pack, 0, sizeof(pack));
 	
 	if (nfq_get_indev(nfa)!=0)
@@ -149,9 +149,9 @@ printf("PK=%i AC=%i\n", id, accept);
 	return 0;
 }
 
-struct musical_trace * musical_trace_init(int chain, musical_trace_callback callback, void* userdata)
+struct trace * trace_init(int chain, trace_callback callback, void* userdata)
 {
-	struct musical_trace * trace = malloc(sizeof(*trace));
+	struct trace * trace = malloc(sizeof(*trace));
 	if (!trace) return NULL;
 	memset(trace, 0, sizeof(*trace));
 	
@@ -170,16 +170,16 @@ struct musical_trace * musical_trace_init(int chain, musical_trace_callback call
 	return trace;
 	
 fail:
-	musical_trace_close(trace);
+	trace_close(trace);
 	return NULL;
 }
 
-void musical_trace_handle(struct musical_trace * trace, const void* data, size_t len)
+void trace_handle(struct trace * trace, const void* data, size_t len)
 {
 	nfq_handle_packet(trace->nfq, (char*)data, len);
 }
 
-void musical_trace_close(struct musical_trace * trace)
+void trace_close(struct trace * trace)
 {
 	if (trace->nfqq) nfq_destroy_queue(trace->nfqq);
 	/* normally, applications SHOULD NOT issue this command, since

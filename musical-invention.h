@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 //config.c
-struct musical_rule {
+struct rule {
 	const char * domain;
 	
 	uint32_t ip_mask; // If (ip&mask)!=match, reject.
@@ -24,8 +24,8 @@ struct musical_rule {
 	int delay; // -1 - DNS TTL
 };
 
-struct musical_config {
-	struct musical_rule * rules;
+struct config {
+	struct rule * rules;
 	size_t numrules;
 	
 	const char * chain;
@@ -33,12 +33,12 @@ struct musical_config {
 	int nfqueue;
 };
 
-struct musical_config * musical_config_parse(FILE* input, FILE* errors);
-void musical_config_free(struct musical_config * config);
+struct config * config_parse(FILE* input, FILE* errors);
+void config_free(struct config * config);
 
 
 //dns.c
-struct musical_dns {
+struct dns {
 	bool isresponse;
 	
 	uint16_t id;
@@ -46,8 +46,8 @@ struct musical_dns {
 	const char * domain;
 	uint32_t ip;
 };
-struct musical_dns * musical_dns_parse(const void * packet, size_t len);
-void musical_dns_free(struct musical_dns * query);
+struct dns * dns_parse(const void * packet, size_t len);
+void dns_free(struct dns * query);
 
 
 
@@ -58,20 +58,20 @@ void musical_dns_free(struct musical_dns * query);
 //Return value is whether to accept the packet.
 //Data should be checked against the whitelist in both directions.
 //TODO: Can I protect against a rogue actor sending bogus replies with data in the IP field?
-struct musical_trace_packet;
-typedef bool(*musical_trace_callback)(struct musical_trace_packet* packet, void* data);
+struct trace_packet;
+typedef bool(*trace_callback)(struct trace_packet* packet, void* data);
 
-struct musical_trace {
+struct trace {
 	struct nfq_handle * nfq;
 	struct nfq_q_handle * nfqq;
 	int fd;
 	
-	musical_trace_callback callback;
+	trace_callback callback;
 	void* userdata;
 };
 
 enum { tcp=6, udp=17, icmp=1 };
-struct musical_trace_packet {
+struct trace_packet {
 	enum { input, output, internal } direction; // refers to iptables INPUT/OUTPUT chains; internal means it's on loopback
 	
 	uint8_t src[16];
@@ -86,9 +86,9 @@ struct musical_trace_packet {
 	size_t datalen;
 };
 
-struct musical_trace * musical_trace_init(int chain, musical_trace_callback callback, void* userdata);
-void musical_trace_handle(struct musical_trace * h, const void* data, size_t len);
-void musical_trace_close(struct musical_trace * h);
+struct trace * trace_init(int chain, trace_callback callback, void* userdata);
+void trace_handle(struct trace * h, const void* data, size_t len);
+void trace_close(struct trace * h);
 
 
 static inline void printhex(const void * p, size_t n)
