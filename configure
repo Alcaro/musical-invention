@@ -1,1 +1,2 @@
-echo "No need to configure, just type make."
+#!/bin/sh
+echo "There's nothing to configure, just type make."

@@ -10,18 +10,18 @@ struct rule rules[] = {
 };
 struct config g_config = { rules, sizeof(rules)/sizeof(*rules), "MUSICAL", "ACCEPT", 0 };
 
-static bool packet_get_direction(struct trace_packet* packet)
+static bool get_direction(struct trace_packet* packet)
 {
 	if (packet->direction == input) return true;
 	if (packet->direction == output) return false;
 	if (packet->dstport == 53) return false;
 	if (packet->srcport == 53) return true;
-	return false; // this shouldn't hit, make a conservative assumption
+	return false; // this shouldn't hit, default to query because query opens less
 }
 
 static bool tr_callback(struct trace_packet* packet, void* userdata)
 {
-	if (packet->direction == internal) packet->direction = packet_get_direction(packet);
+	if (packet->direction == internal) packet->direction = get_direction(packet);
 	
 	printf("dir=%i proto=%i ", packet->direction, packet->proto);
 	printf("src=%i.%i.%i.%i:%i ", packet->src[12], packet->src[13], packet->src[14], packet->src[15], packet->srcport);
@@ -39,12 +39,10 @@ static bool tr_callback(struct trace_packet* packet, void* userdata)
 uint8_t buf[4096] __attribute__((aligned));
 int main(int argc, char* argv[])
 {
-	struct trace * tr;
-	
 	struct config * cfg = config_parse(NULL, stderr);
 	cfg = &g_config;
 	
-	tr = trace_init(cfg->nfqueue, tr_callback, NULL);
+	struct trace * tr = trace_init(cfg->nfqueue, tr_callback, NULL);
 	
 	int rv;
 	while ((rv = recv(tr->fd, buf, sizeof(buf), 0)) && rv >= 0) {

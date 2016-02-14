@@ -62,7 +62,7 @@ example.com                              # Basic entry. Everyone can access exam
 example.com proto=tcp                    # Reject UDP and ICMP traffic (including ping) to this host. Options like that must be after the domain name.
 example.com proto=tcp port=80            # Allow only TCP port 80. ICMP traffic is consided to be port 0.
 example.com proto=tcp,udp                # Allow TCP and UDP, but not ICMP.
-irc.example.com proto=tcp port=6667-6669 # Allow multiple TCP ports. The range is inclusive on both sides.
+irc.example.com proto=tcp port=6667:6669 # Allow multiple TCP ports. The range is inclusive on both sides.
 .example.com                             # Allow all subdomains of example.com, including multi-level (foo.bar.example.com). Doesn't allow example.com itself, but you can always add an extra rule for that.
 example.com ip=93.184.216.34             # Allow only if example.com points to that IP address.
 example.com ip=93.184.0.0/16             # Allow only if example.com points to that subnet.

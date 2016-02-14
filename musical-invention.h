@@ -43,8 +43,8 @@ struct dns {
 	
 	uint16_t id;
 	
-	const char * domain;
-	uint32_t ip;
+	char * domain;
+	uint8_t ip[16];
 };
 struct dns * dns_parse(const void * packet, size_t len);
 void dns_free(struct dns * query);

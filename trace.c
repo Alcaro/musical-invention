@@ -109,29 +109,7 @@ static bool process(struct nfq_data * nfa, struct trace * tr)
 	
 	//now it's a payload, probably DNS
 	
-//	
-//	//enum { tcp, udp, icmp } type;
-//	//
-//	//uint16_t srcport;
-//	//uint16_t dstport;
-//	//
-//	//const uint8_t * data;
-//	//size_t datalen;
-//	
-//	static struct nlif_handle * h;
-//	if (!h)
-//	{
-//		h = nlif_open();
-//		nlif_query(h);
-//	}
-//	
-//	char iname[IFNAMSIZ];
-//	char oname[IFNAMSIZ];
-//	nfq_get_indev_name(h, nfa, iname);
-//	nfq_get_outdev_name(h, nfa, oname);
-//	printf("in=%i '%s' out=%i '%s' ", nfq_get_indev(nfa), iname, nfq_get_outdev(nfa), oname);
 	bool accept = tr->callback(&pack, tr->userdata);
-accept=true;
 	
 	return accept;
 }
@@ -144,7 +122,6 @@ static int cb(struct nfq_q_handle * qh, struct nfgenmsg * nfmsg,
 	uint32_t id=0;
 	struct nfqnl_msg_packet_hdr * ph = nfq_get_msg_packet_hdr(nfa);
 	if (ph) id = ntohl(ph->packet_id);
-printf("PK=%i AC=%i\n", id, accept);
 	nfq_set_verdict(qh, id, accept?NF_ACCEPT:NF_DROP, 0, NULL);
 	return 0;
 }
