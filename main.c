@@ -10,13 +10,33 @@ struct musical_rule rules[] = {
 };
 struct musical_config g_config = { rules, sizeof(rules)/sizeof(*rules), "MUSICAL", "ACCEPT", 0 };
 
-static bool trace_callback(bool isresponse, const uint8_t* packet, size_t len, void* userdata)
+static bool packet_get_direction(struct musical_trace_packet* packet)
 {
-	printf("dir=%s data=%lu(%.2X %.2X %.2X %.2X...)\n", isresponse?"response":"query", len, packet[0], packet[1], packet[2], packet[3]);
-	return true;
+	if (packet->direction == input) return true;
+	if (packet->direction == output) return false;
+	if (packet->dstport == 53) return false;
+	if (packet->srcport == 53) return true;
+	return false; // this shouldn't hit, make a conservative assumption
 }
 
-uint8_t buf[4096] __attribute__ ((aligned));
+static bool trace_callback(struct musical_trace_packet* packet, void* userdata)
+{
+	if (packet->direction == internal) packet->direction = packet_get_direction(packet);
+	
+	printf("dir=%i proto=%i ", packet->direction, packet->proto);
+	printf("src=%i.%i.%i.%i:%i ", packet->src[12], packet->src[13], packet->src[14], packet->src[15], packet->srcport);
+	printf("dst=%i.%i.%i.%i:%i ", packet->dst[12], packet->dst[13], packet->dst[14], packet->dst[15], packet->dstport);
+	
+	struct musical_dns * q = musical_dns_parse(packet->data, packet->datalen);
+	if (!q) return false;
+	
+	bool ret=true;
+	
+	musical_dns_free(q);
+	return ret;
+}
+
+uint8_t buf[4096] __attribute__((aligned));
 int main(int argc, char* argv[])
 {
 	struct musical_trace * trace;
@@ -28,7 +48,7 @@ int main(int argc, char* argv[])
 	
 	int rv;
 	while ((rv = recv(trace->fd, buf, sizeof(buf), 0)) && rv >= 0) {
-		musical_trace_packet(trace, buf, rv);
+		musical_trace_handle(trace, buf, rv);
 	}
 	musical_trace_close(trace);
 }

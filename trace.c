@@ -9,27 +9,144 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <string.h>
 
-static int cb(struct nfq_q_handle * qh, struct nfgenmsg * nfmsg,
-              struct nfq_data * nfa, void * userdata)
+static unsigned int get_lo()
 {
-	struct musical_trace * trace = userdata;
+	static unsigned int lo = 0;
+	if (lo == 0)
+	{
+		struct nlif_handle * h = nlif_open();
+		nlif_query(h);
+		
+		while (true)
+		{
+			char name[IFNAMSIZ];
+			name[0]=0;
+			
+			nlif_index2name(h, ++lo, name);
+			if (!strcmp(name, "lo")) break;
+		}
+		
+		nlif_close(h);
+	}
+	return lo;
+}
+
+static bool unpack_ipv4(struct musical_trace_packet * pack)
+{
+	if (pack->datalen < 20) return false; // IPv4 packets are 20 bytes plus data
+	if ((pack->data[0]>>4) != 4) return false;
+	
+	if ((pack->data[0]&15) != 5) return false; // Internet Header Length, seems like it should never be used
+	
+	if ((pack->data[6]&0x20)!=0) return false; // fragmented, not last
+	if ((pack->data[6]&0x1F)!=0 || pack->data[7]!=0) return false; // fragmented, not first
+	
+	static const uint8_t ipv6_v4_prefix[16-4]={0,0,0,0,0,0,0,0,0,0,0xFF,0xFF};
+	memcpy(pack->src, ipv6_v4_prefix, 12);
+	memcpy(pack->src+12, pack->data+12, 4);
+	memcpy(pack->dst, ipv6_v4_prefix, 12);
+	memcpy(pack->dst+12, pack->data+16, 4);
+	
+	pack->proto = pack->data[9];
+	
+	pack->data += 20;
+	pack->datalen -= 20;
+	
+	return true;
+}
+
+static bool unpack_udp(struct musical_trace_packet * pack)
+{
+	if (pack->proto != udp) return false;
+	if (pack->datalen < 8) return false; // UDP packets are 8 bytes plus data
+	
+	pack->srcport = pack->data[0]<<8 | pack->data[1];
+	pack->dstport = pack->data[2]<<8 | pack->data[3];
+	
+	pack->data += 8;
+	pack->datalen -= 8;
+	
+	return true;
+}
+
+static bool process(struct nfq_data * nfa, struct musical_trace * trace)
+{
 	uint8_t * data;
 	int len = nfq_get_payload(nfa, &data);
 	
-	int outdev = nfq_get_outdev(nfa);
-	bool isresponse = (outdev==2); // TODO: figure out if this is safe
-	if (outdev!=1 && outdev!=2)
+	struct musical_trace_packet pack;
+	memset(&pack, 0, sizeof(pack));
+	
+	if (nfq_get_indev(nfa)!=0)
 	{
-		printf("PANIC: outdev not in { 1, 2 }\n");
-		exit(1);
+		if (nfq_get_indev(nfa) != get_lo()) pack.direction = input;
+		else return true;//already processed
+	}
+	else
+	{
+		if (nfq_get_outdev(nfa) != get_lo()) pack.direction = output;
+		else pack.direction = internal;
 	}
 	
-	bool accept = trace->callback(isresponse, data, len, trace->userdata);
+	//this data is an IP packet
+	//the packet is assumed to be valid; I'll reject things with rare options, but I'll ignore lengths and checksums
+	
+	int dev = nfq_get_indev(nfa);
+	if (!dev) dev = nfq_get_outdev(nfa); // haven't found anything set zero or both of those
+	
+	pack.data = data;
+	pack.datalen = len;
+	
+	if(0);
+	else if (unpack_ipv4(&pack)) {}
+	else return false;
+	
+	//now 'data' points to a UDP/etc packet
+	
+	if(0);
+	else if (unpack_udp(&pack)) {}
+	else return false;
+	
+	//now it's a payload, probably DNS
+	
+//	
+//	//enum { tcp, udp, icmp } type;
+//	//
+//	//uint16_t srcport;
+//	//uint16_t dstport;
+//	//
+//	//const uint8_t * data;
+//	//size_t datalen;
+//	
+//	static struct nlif_handle * h;
+//	if (!h)
+//	{
+//		h = nlif_open();
+//		nlif_query(h);
+//	}
+//	
+//	char iname[IFNAMSIZ];
+//	char oname[IFNAMSIZ];
+//	nfq_get_indev_name(h, nfa, iname);
+//	nfq_get_outdev_name(h, nfa, oname);
+//	printf("in=%i '%s' out=%i '%s' ", nfq_get_indev(nfa), iname, nfq_get_outdev(nfa), oname);
+	bool accept = trace->callback(&pack, trace->userdata);
+accept=true;
+	
+	return accept;
+}
+
+static int cb(struct nfq_q_handle * qh, struct nfgenmsg * nfmsg,
+              struct nfq_data * nfa, void * userdata)
+{
+	bool accept = process(nfa, userdata);
 	
 	uint32_t id=0;
 	struct nfqnl_msg_packet_hdr * ph = nfq_get_msg_packet_hdr(nfa);
 	if (ph) id = ntohl(ph->packet_id);
-	return nfq_set_verdict(qh, id, accept?NF_ACCEPT:NF_DROP, 0, NULL);
+printf("PK=%i AC=%i\n", id, accept);
+	nfq_set_verdict(qh, id, accept?NF_ACCEPT:NF_DROP, 0, NULL);
+	return 0;
 }
 
 struct musical_trace * musical_trace_init(int chain, musical_trace_callback callback, void* userdata)
@@ -57,7 +174,7 @@ fail:
 	return NULL;
 }
 
-void musical_trace_packet(struct musical_trace * trace, const void* data, size_t len)
+void musical_trace_handle(struct musical_trace * trace, const void* data, size_t len)
 {
 	nfq_handle_packet(trace->nfq, (char*)data, len);
 }
