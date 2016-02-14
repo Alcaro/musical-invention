@@ -69,7 +69,7 @@ static bool unpack_udp(struct trace_packet * pack)
 	return true;
 }
 
-static bool process(struct nfq_data * nfa, struct trace * trace)
+static bool process(struct nfq_data * nfa, struct trace * tr)
 {
 	uint8_t * data;
 	int len = nfq_get_payload(nfa, &data);
@@ -130,7 +130,7 @@ static bool process(struct nfq_data * nfa, struct trace * trace)
 //	nfq_get_indev_name(h, nfa, iname);
 //	nfq_get_outdev_name(h, nfa, oname);
 //	printf("in=%i '%s' out=%i '%s' ", nfq_get_indev(nfa), iname, nfq_get_outdev(nfa), oname);
-	bool accept = trace->callback(&pack, trace->userdata);
+	bool accept = tr->callback(&pack, tr->userdata);
 accept=true;
 	
 	return accept;
@@ -151,40 +151,40 @@ printf("PK=%i AC=%i\n", id, accept);
 
 struct trace * trace_init(int chain, trace_callback callback, void* userdata)
 {
-	struct trace * trace = malloc(sizeof(*trace));
-	if (!trace) return NULL;
-	memset(trace, 0, sizeof(*trace));
+	struct trace * tr = malloc(sizeof(*tr));
+	if (!tr) return NULL;
+	memset(tr, 0, sizeof(*tr));
 	
-	trace->nfq = nfq_open();
-	if (!trace->nfq) goto fail;
-	if (nfq_unbind_pf(trace->nfq, AF_INET) < 0) goto fail;
-	if (nfq_bind_pf(trace->nfq, AF_INET) < 0) goto fail;
-	trace->nfqq = nfq_create_queue(trace->nfq, chain, &cb, trace);
-	if (!trace->nfqq) goto fail;
-	if (nfq_set_mode(trace->nfqq, NFQNL_COPY_PACKET, 0xffff) < 0) goto fail;
-	trace->fd = nfq_fd(trace->nfq);
+	tr->nfq = nfq_open();
+	if (!tr->nfq) goto fail;
+	if (nfq_unbind_pf(tr->nfq, AF_INET) < 0) goto fail;
+	if (nfq_bind_pf(tr->nfq, AF_INET) < 0) goto fail;
+	tr->nfqq = nfq_create_queue(tr->nfq, chain, &cb, tr);
+	if (!tr->nfqq) goto fail;
+	if (nfq_set_mode(tr->nfqq, NFQNL_COPY_PACKET, 0xffff) < 0) goto fail;
+	tr->fd = nfq_fd(tr->nfq);
 	
-	trace->callback = callback;
-	trace->userdata = userdata;
+	tr->callback = callback;
+	tr->userdata = userdata;
 	
-	return trace;
+	return tr;
 	
 fail:
-	trace_close(trace);
+	trace_close(tr);
 	return NULL;
 }
 
-void trace_handle(struct trace * trace, const void* data, size_t len)
+void trace_handle(struct trace * tr, const void* data, size_t len)
 {
-	nfq_handle_packet(trace->nfq, (char*)data, len);
+	nfq_handle_packet(tr->nfq, (char*)data, len);
 }
 
-void trace_close(struct trace * trace)
+void trace_close(struct trace * tr)
 {
-	if (trace->nfqq) nfq_destroy_queue(trace->nfqq);
+	if (tr->nfqq) nfq_destroy_queue(tr->nfqq);
 	/* normally, applications SHOULD NOT issue this command, since
 	 * it detaches other programs/sockets from AF_INET, too ! */
-	//nfq_unbind_pf(trace->nfq, AF_INET);
-	if (trace->nfq) nfq_close(trace->nfq);
-	free(trace);
+	//nfq_unbind_pf(tr->nfq, AF_INET);
+	if (tr->nfq) nfq_close(tr->nfq);
+	free(tr);
 }

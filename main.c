@@ -19,7 +19,7 @@ static bool packet_get_direction(struct trace_packet* packet)
 	return false; // this shouldn't hit, make a conservative assumption
 }
 
-static bool trace_callback(struct trace_packet* packet, void* userdata)
+static bool tr_callback(struct trace_packet* packet, void* userdata)
 {
 	if (packet->direction == internal) packet->direction = packet_get_direction(packet);
 	
@@ -39,16 +39,16 @@ static bool trace_callback(struct trace_packet* packet, void* userdata)
 uint8_t buf[4096] __attribute__((aligned));
 int main(int argc, char* argv[])
 {
-	struct trace * trace;
+	struct trace * tr;
 	
-	struct config * config = config_parse(NULL, stderr);
-	config = &g_config;
+	struct config * cfg = config_parse(NULL, stderr);
+	cfg = &g_config;
 	
-	trace = trace_init(config->nfqueue, trace_callback, NULL);
+	tr = trace_init(cfg->nfqueue, tr_callback, NULL);
 	
 	int rv;
-	while ((rv = recv(trace->fd, buf, sizeof(buf), 0)) && rv >= 0) {
-		trace_handle(trace, buf, rv);
+	while ((rv = recv(tr->fd, buf, sizeof(buf), 0)) && rv >= 0) {
+		trace_handle(tr, buf, rv);
 	}
-	trace_close(trace);
+	trace_close(tr);
 }
