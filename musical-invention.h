@@ -7,16 +7,12 @@
 #include <stddef.h>
 #include <stdio.h>
 
+//config.c
 struct musical_rule {
-	//This affects whether the query is allowed.
 	const char * domain;
 	
-	//These (and the above) affect whether the response is allowed.
-	
-	uint32_t ip_mask;
+	uint32_t ip_mask; // If (ip&mask)!=match, reject.
 	uint32_t ip_match;
-	
-	//These (and the DNS response) affect what iptables rule to add.
 	
 	int proto; // 1 - TCP, 2 - UDP, 4 - ICMP
 	
@@ -37,20 +33,29 @@ struct musical_config {
 	int nfqueue;
 };
 
-//config.c
-bool musical_config_parse(FILE* file, struct musical_config * config, FILE* errors);
+struct musical_config * musical_config_parse(FILE* input, FILE* errors);
+void musical_config_free(struct musical_config * config);
+
 
 //dns.c
+//TODO
 
-//trace.c
-struct musical_trace {
-	struct nfq_handle * h;
-	void(*callback)(bool response, const uint8_t* packet, size_t len);
-};
-
-struct musical_trace * musical_trace_init(int chain, bool(*callback)(bool response, const uint8_t* packet, size_t len));
-void musical_trace_packet(struct musical_trace * h, const uint8_t* data, size_t len);
-void musical_trace_close(struct musical_trace * h);
 
 //main.c - contains only main()
 
+
+//trace.c
+typedef bool(*musical_trace_callback)(bool isresponse, const uint8_t* packet, size_t len, void* data);
+
+struct musical_trace {
+	struct nfq_handle * nfq;
+	struct nfq_q_handle * nfqq;
+	int fd;
+	
+	musical_trace_callback callback;
+	void* userdata;
+};
+
+struct musical_trace * musical_trace_init(int chain, musical_trace_callback callback, void* userdata);
+void musical_trace_packet(struct musical_trace * h, const void* data, size_t len);
+void musical_trace_close(struct musical_trace * h);

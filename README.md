@@ -1,11 +1,11 @@
 # Musical Invention
-Linux firewall whitelist based on domain names. Opens the firewall after a successful DNS lookup to an approved host, then closes it shortly afterwards.
+Linux firewall whitelist, based on domain names. Opens the firewall after a successful DNS lookup to an approved host, then closes it shortly afterwards.
 
-Programs generally don't need to be modified to run under Musical Invention.
+Programs should not need to be modified to run under Musical Invention.
 
 ## TODO list (do not use until all are ticked)
 
-- [ ] Find needed technologies: Send packets to userspace (iptables -j QUEUE), change iptables rules from C (unknown)
+- [X] Find needed technologies: Send packets to userspace (iptables -j QUEUE), change iptables rules from C (system("iptables"))
 - [ ] Parse DNS query
 - [ ] Parse DNS reply
 - [ ] DNS over TCP
@@ -16,20 +16,22 @@ Programs generally don't need to be modified to run under Musical Invention.
 
 Dependencies: libnetfilter_queue, /sbin/iptables (Debian names: libnetfilter-queue-dev, iptables).
 
-I'd prefer figuring out the kernel protocols and implementing that myself, but the netfilter and
-iptables APIs are undocumented, and strace and the source codes aren't enough for me to figure them out.
+I'd prefer figuring out the kernel protocols and implementing that myself (I generally dislike
+dependencies, even if taking them would make the program smaller), but the netfilter and iptables
+APIs are undocumented, and strace and the source codes aren't enough for me to figure them out.
 
 To use Musical Invention, you must set up some iptables rules:
 - Forward all DNS traffic to Musical Invention.
 - Set up a filter chain where Musical Invention can append the rules.
 - Set up rules for allowing localhost, and whatever else is in your /etc/hosts.
-- Set a rule to block anything else. No point allowing traffic to certain domains, then allowing everything else too.
+- Set a rule to block by default. No point allowing traffic to certain domains, then allowing everything else too.
 
-It may look like Musical Invention can be used to blacklist domain names too, but it's not designed
-for that, and a crafty attacker can get past that by waiting between the lookup and the request, or
-transferring the IP in another way. Musical Invention is a whitelist, not a blacklist.
+It may look like Musical Invention can be used to blacklist domain names too, but Musical Invention
+is designed to be as strict a whitelist as possible - which makes it too loose to use as a blacklist.
+For example, an attacker can get past that by waiting between the lookup and the request, or
+connecting to an IP directly without looking it up.
 
-For a basic setup, you can use these commands; feel free to adjust if your setup is more complicated:
+To get started, you can use these commands:
 
 ```
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
@@ -43,12 +45,14 @@ iptables -A OUTPUT -p tcp --dport 53 -j NFQUEUE --queue-num 0
 iptables -N MUSICAL
 iptables -A OUTPUT -j MUSICAL
 
-iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT --queue-num 0
+iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT
 
 iptables -P OUTPUT REJECT
 
 musical-invention /etc/musical-invention.conf
 ```
+
+If your setup is more complicated (if you're using an outbound firewall, it is), feel free to adjust.
 
 ## Config example
 
@@ -64,7 +68,7 @@ example.com ip=93.184.216.34             # Allow only if example.com points to t
 example.com ip=93.184.0.0/16             # Allow only if example.com points to that subnet.
 example.com user=www-data                # Allow only for this user. Note that DNS lookups are allowed for everyone; others just can't communicate with the target.
 # To allow everything for a user, put [iptables -A OUTPUT -m owner --uid-owner (user) -j ACCEPT] before NFQUEUEing the DNS request.
-* queue=0                                # Tells which iptables QUEUE to listen to. Must have a * in the domain name field.
+* queue=0                                # Tells which iptables NFQUEUE to listen to. Must have a * in the domain name field.
 * chain=MUSICAL target=ACCEPT            # Tells which iptables chain to write the rules to, and what target to use. You can put a custom chain that logs then accepts here.
 example.com delay=300                    # Tells how long to leave the port open after a successful lookup. Domain name can be * to set the default, or you can put this on any valid rule.
 # Don't just set it to one second, because that's how long it takes to open the connection; DNS lookups are often cached, and if the cache lasts longer than this timer, successive connections will fail.
@@ -77,6 +81,6 @@ The default values are queue=0 chain=MUSICAL accept=ACCEPT delay=TTL, and an emp
 
 Only TCP, UDP and ICMP PING are supported. Only IPv4 is supported. Only Linux hosts are supported.
 
-
+<br>
 
 And the name? I just accepted one of GitHub's silly "Need inspiration? How about foo-bar." suggestions.

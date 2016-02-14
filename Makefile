@@ -1,2 +1,2 @@
 musical-invention: *.c
-	gcc -std=c99 *.c -omusical-invention -lnetfilter_queue -Wall -Werror -O3
+	gcc -std=c99 *.c -omusical-invention -lnetfilter_queue -Wall -Werror -g
